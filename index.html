@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>進捗管理ダッシュボード</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --navy:#1a4f7a;--navy-d:#0f3a5c;--navy-l:#2b6cb0;
+    --gap:#13497a;--actual:#cdd9e3;
+    --bg:#eef2f6;--card:#fff;--ink:#1f2d3d;--sub:#6b7c8f;
+    --good:#1f7a4d;--warn:#c06a1b;--bad:#c0392b;--line:#dfe6ec;
+  }
+  body{font-family:"Hiragino Kaku Gothic ProN","Segoe UI",sans-serif;background:var(--bg);color:var(--ink);}
+  .header{background:linear-gradient(135deg,var(--navy-d),var(--navy));color:#fff;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .header h1{font-size:18px;font-weight:700;}
+  .header h1 small{display:block;font-size:11px;opacity:.8;font-weight:400;margin-top:2px;}
+  .month-nav{display:flex;align-items:center;gap:10px;}
+  .month-nav button{background:rgba(255,255,255,.18);border:none;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:15px;}
+  .month-nav button:hover{background:rgba(255,255,255,.34);}
+  .month-label{font-size:16px;font-weight:600;min-width:96px;text-align:center;}
+  .tabs{background:#fff;display:flex;border-bottom:2px solid var(--line);padding:0 16px;overflow-x:auto;}
+  .tab{padding:13px 16px;cursor:pointer;font-size:13px;font-weight:600;color:var(--sub);border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;}
+  .tab.active{color:var(--navy);border-bottom-color:var(--navy);}
+  .toolbar{background:#fff;border-bottom:1px solid var(--line);padding:8px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .tb-btn{font-size:12px;font-weight:600;color:var(--navy);background:#f5f8fb;border:1px solid var(--line);border-radius:7px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;}
+  .tb-btn:hover{background:#e9f2fb;}
+  .tb-btn:disabled{color:#b8c2cc;cursor:default;background:#f5f5f5;}
+  .tb-note{font-size:11px;color:var(--good);margin-left:6px;}
+  .content{padding:20px;max-width:1180px;margin:0 auto;}
+  .page{display:none;}.page.active{display:block;}
+  .section-title{font-size:15px;font-weight:700;margin:4px 0 14px;padding-left:9px;border-left:4px solid var(--navy);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .section-title .hint{font-size:11px;font-weight:400;color:var(--sub);}
+  .cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:20px;}
+  .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 1px 6px rgba(20,50,90,.08);}
+  .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .card-title{font-size:14px;font-weight:700;}
+  .badge{font-size:10px;padding:3px 9px;border-radius:20px;font-weight:700;}
+  .b-new{background:#e9f2fb;color:var(--navy-l);}.b-renew{background:#e8f4ec;color:var(--good);}
+  .b-total{background:#fdf0e3;color:var(--warn);}.b-life{background:#efe9fa;color:#6b46c1;}
+
+  .io-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-bottom:12px;}
+  .io-row{display:flex;gap:6px;align-items:center;font-size:12px;}
+  .io-row label{color:var(--sub);width:54px;flex-shrink:0;}
+  .io-row input,.io-row select{border:1px solid var(--line);border-radius:7px;padding:7px 8px;font-size:13px;width:100%;text-align:right;}
+  .io-row input:focus,.io-row select:focus{outline:none;border-color:var(--navy-l);}
+  .io-unit{font-size:11px;color:var(--sub);grid-column:1/-1;margin:-4px 0 2px;font-weight:700;}
+  .quick-add{display:flex;align-items:center;gap:8px;background:#eef6ee;border:1px solid #cfe6d2;border-radius:9px;padding:8px 10px;margin-bottom:8px;}
+  .quick-add .qa-lbl{font-size:12px;font-weight:700;color:var(--good);white-space:nowrap;}
+  .quick-add input{flex:1;min-width:0;border:1px solid #c2d8c5;border-radius:7px;padding:8px;font-size:14px;text-align:right;}
+  .quick-add input:focus{outline:none;border-color:var(--good);}
+  .quick-add .qa-btn{background:var(--good);color:#fff;border:none;border-radius:7px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+  .quick-add .qa-btn:hover{background:#155f3b;}
+
+  .dual{display:flex;gap:16px;margin:8px 0;}
+  .metric-block{flex:1;}
+  .mb-label{font-size:11px;color:var(--sub);text-align:center;margin-bottom:6px;font-weight:700;}
+  .steps{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px;}
+  .step{text-align:center;background:#f5f8fb;border-radius:6px;padding:6px 2px;}
+  .step .lbl{font-size:9px;color:var(--sub);}
+  .step .val{font-size:14px;font-weight:800;}
+  .step.target .val{color:var(--navy);}.step.actual .val{color:#4a6075;}
+  .step.gap .val{color:var(--gap);}.step.gap.cleared .val{color:var(--good);}
+  .barbox{display:flex;align-items:flex-end;gap:10px;height:120px;}
+  .bar-outer{width:62px;height:100%;background:#fff;border:2px solid var(--navy);border-radius:5px;display:flex;flex-direction:column-reverse;overflow:hidden;}
+  .bar-fill{width:100%;background:var(--actual);transition:height .5s;position:relative;}
+  .bar-band{width:100%;background:repeating-linear-gradient(45deg,#fff,#fff 5px,#eef3f8 5px,#eef3f8 10px);position:relative;}
+  .bar-anum{position:absolute;top:2px;left:0;right:0;text-align:center;font-size:11px;font-weight:800;color:#34495e;}
+  .bar-gnum{position:absolute;top:4px;left:0;right:0;text-align:center;font-size:11px;font-weight:800;color:var(--gap);}
+  .rate-mini{flex:1;text-align:center;}
+  .rate-mini .r{font-size:22px;font-weight:800;}
+  .rate-mini .rl{font-size:10px;color:var(--sub);}
+  .rate-good{color:var(--good);}.rate-warn{color:var(--warn);}.rate-bad{color:var(--bad);}
+
+  .next-move{background:#f5f8fb;border:1px dashed var(--navy-l);border-radius:10px;padding:11px;margin-top:10px;}
+  .nm-title{font-size:11px;font-weight:700;color:var(--navy);margin-bottom:7px;}
+  .nm-opts{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px;}
+  .nm-opt{font-size:10px;padding:4px 9px;border:1px solid var(--line);border-radius:20px;background:#fff;cursor:pointer;color:var(--sub);}
+  .nm-opt.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .next-move textarea{width:100%;border:1px solid var(--line);border-radius:7px;padding:7px;font-size:12px;resize:vertical;font-family:inherit;min-height:46px;}
+
+  /* 契約明細 */
+  .entry-panel{background:#fff;border-radius:12px;padding:18px;box-shadow:0 1px 6px rgba(20,50,90,.08);margin-bottom:20px;}
+  .entry-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;align-items:end;}
+  .ef-field{display:flex;flex-direction:column;gap:4px;}
+  .ef-field label{font-size:10px;color:var(--sub);font-weight:700;}
+  .ef-field input,.ef-field select{border:1px solid var(--line);border-radius:7px;padding:8px;font-size:13px;}
+  .ef-add{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;height:38px;}
+  .ef-add:hover{background:var(--navy-d);}
+  .entry-list{margin-top:14px;}
+  .entry-list h4{font-size:12px;color:var(--sub);margin:14px 0 8px;border-bottom:1px solid var(--line);padding-bottom:5px;}
+  .e-row{display:grid;grid-template-columns:64px 1fr 70px 90px 90px 30px;gap:8px;align-items:center;font-size:12.5px;padding:7px 4px;border-bottom:1px solid #f0f4f8;}
+  .e-row-money{grid-template-columns:64px 1fr 110px 30px;}
+  .e-row .etype{font-weight:700;padding:2px 7px;border-radius:5px;font-size:10px;text-align:center;}
+  .et-new{background:#e9f2fb;color:var(--navy-l);}.et-renew{background:#e8f4ec;color:var(--good);}
+  .e-row .edel{background:none;border:none;color:#c0a0a0;cursor:pointer;font-size:15px;}
+  .e-empty{font-size:12px;color:var(--sub);padding:8px 4px;}
+  .e-future{background:#fbf7ee;border:1px dashed var(--warn);border-radius:8px;padding:6px 8px;}
+  .fut-group{background:#fbf7ee;border:1px dashed var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:10px;}
+  .fut-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:4px;}
+  .fut-month{font-size:13px;font-weight:700;color:var(--warn);}
+  .fut-totals{font-size:12px;color:var(--ink);}
+  .fut-totals b{color:var(--navy);}
+  .fut-pct{font-size:11px;color:var(--sub);}
+  .fut-break{font-size:11px;color:var(--sub);margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #ecdfc8;}
+
+  .week-strip{display:flex;gap:6px;margin:8px 0;}
+  .wk{flex:1;text-align:center;}
+  .wk .wbar{height:80px;display:flex;flex-direction:column-reverse;border:1.5px solid var(--navy);border-radius:4px;overflow:hidden;background:#fff;}
+  .wk .wfill{background:var(--actual);width:100%;transition:height .4s;}
+  .wk .wband{background:repeating-linear-gradient(45deg,#fff,#fff 4px,#eef3f8 4px,#eef3f8 8px);width:100%;}
+  .wk.cur .wlbl{color:var(--navy);font-weight:700;}
+  .wk .wlbl{font-size:9px;color:var(--sub);margin-top:4px;}
+  .wk .wnum{font-size:10px;font-weight:700;margin-top:2px;}
+
+  .trend-wrap{background:#fff;border-radius:12px;padding:18px;box-shadow:0 1px 6px rgba(20,50,90,.08);overflow-x:auto;}
+  .trend-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;gap:8px;}
+  .trend-head #trend-title{flex:1 1 auto;line-height:1.4;}
+  .trend-diag{font-size:12px;font-weight:700;padding:5px 12px;border-radius:6px;white-space:nowrap;}
+  .diag-good{background:#e8f4ec;color:var(--good);}.diag-warn{background:#fdf0e3;color:var(--warn);}.diag-bad{background:#fbeae8;color:var(--bad);}.diag-none{background:#eef2f6;color:var(--sub);}
+  .trend-chart{display:flex;align-items:flex-end;gap:8px;height:380px;min-width:680px;padding-top:40px;border-bottom:2px solid var(--line);}
+  .tcol{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;}
+  .tbar{width:80%;max-width:44px;display:flex;flex-direction:column-reverse;position:relative;}
+  .tbar .t-actual{width:100%;background:var(--actual);}
+  .tbar .t-gap{width:100%;background:var(--gap);display:flex;align-items:flex-start;justify-content:center;}
+  .tbar .t-gap span{font-size:10px;color:#fff;padding-top:3px;font-weight:600;}
+  .tbar .t-over{position:absolute;top:-15px;left:0;right:0;text-align:center;font-size:10px;color:var(--good);font-weight:700;}
+  .t-topnum{font-size:11px;font-weight:700;color:#3a4a5a;margin-bottom:5px;line-height:1;}
+  .t-topnum.over{color:var(--good);}
+  .tcol.current .t-topnum{color:var(--navy);font-size:12px;}
+  .tlbl{font-size:11px;color:var(--sub);margin-top:7px;}.tcol.current .tlbl{color:var(--navy);font-weight:700;}
+  .tcol.future .t-actual{background:repeating-linear-gradient(45deg,var(--actual),var(--actual) 4px,#e3ebf2 4px,#e3ebf2 8px);}
+  .tcol.future .tlbl{color:var(--warn);}
+  .legend{display:flex;gap:16px;font-size:11px;color:var(--sub);margin-top:10px;flex-wrap:wrap;}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px;}
+
+  .save-btn{background:var(--navy);color:#fff;border:none;padding:11px 24px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:700;width:100%;margin-top:16px;}
+  .save-btn:hover{background:var(--navy-d);}.save-btn:active{transform:scale(.99);}
+  .saved-msg{color:var(--good);font-size:12px;text-align:center;height:18px;margin-top:6px;}
+
+  .daily{background:#fff;border-radius:12px;padding:18px;box-shadow:0 1px 6px rgba(20,50,90,.08);}
+  .daily-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .add-btn{background:var(--navy);color:#fff;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;}
+  .log-h,.log-r{display:grid;grid-template-columns:84px repeat(3,1fr) 30px;gap:6px;align-items:center;}
+  .log-h{font-size:10px;color:var(--sub);font-weight:700;text-align:center;margin-bottom:8px;}
+  .log-h div:first-child{text-align:left;}
+  .log-r{margin-bottom:7px;font-size:13px;}.log-r .dl{font-weight:600;color:#4a6075;}
+  .log-r input{width:100%;border:1px solid var(--line);border-radius:6px;padding:6px;text-align:center;font-size:13px;}
+  .log-r .del{background:none;border:none;color:#c0a0a0;cursor:pointer;font-size:15px;}
+  .sumbar{background:#f5f8fb;border-radius:10px;padding:13px;display:flex;gap:18px;margin-top:14px;flex-wrap:wrap;}
+  .sumbar .si{text-align:center;flex:1;min-width:90px;}
+  .sumbar .si .sv{font-size:19px;font-weight:800;}.sumbar .si .sl{font-size:10px;color:var(--sub);}
+
+  .help-card{background:#fff;border-radius:12px;padding:16px 20px;box-shadow:0 1px 6px rgba(20,50,90,.08);margin-bottom:14px;}
+  .help-card h3{font-size:15px;color:var(--navy);margin-bottom:10px;}
+  .help-card p{font-size:13px;color:#3a4a5a;line-height:1.7;}
+  .help-card ol,.help-card ul{margin:0;padding-left:20px;}
+  .help-card li{font-size:13px;color:#3a4a5a;line-height:1.7;margin-bottom:6px;}
+  .help-card .ex{color:var(--good);font-size:12px;}
+  .help-card .note{font-size:12px;color:var(--warn);margin-top:8px;background:#fdf6ee;border-radius:7px;padding:8px 10px;}
+  .help-card b{color:var(--navy-d);}
+  .help-philosophy{background:#f5f8fb;border:1px solid #dce6ef;}
+  .help-philosophy li b{color:var(--navy);}
+  .principle{background:#fff;border-radius:12px;padding:18px;box-shadow:0 1px 6px rgba(20,50,90,.08);margin-bottom:16px;}
+  .principle h3{font-size:13px;color:var(--navy);margin-bottom:10px;}
+  .principle ul{list-style:none;}
+  .principle li{font-size:12.5px;color:#3a4a5a;padding:6px 0 6px 24px;position:relative;border-bottom:1px solid #f0f4f8;}
+  .principle li:before{content:"☑";position:absolute;left:0;color:var(--navy-l);}
+  .principle li:last-child{border-bottom:none;}
+
+  .year-row{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 6px rgba(20,50,90,.08);margin-bottom:14px;}
+  .year-row .yr-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+  .year-row .yr-title{font-size:14px;font-weight:700;}
+  .yr-bar-bg{height:26px;background:#eef3f8;border-radius:6px;overflow:hidden;position:relative;border:1px solid var(--line);}
+  .yr-bar{height:100%;background:linear-gradient(90deg,var(--navy-l),var(--navy));transition:width .5s;}
+  .yr-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:5px;}
+  .yr-input{display:flex;gap:6px;align-items:center;font-size:12px;}
+  .yr-input input{border:1px solid var(--line);border-radius:7px;padding:6px 8px;width:120px;text-align:right;font-size:13px;}
+
+  @media(max-width:620px){.cards-grid{grid-template-columns:1fr;}.content{padding:14px;}.dual{flex-direction:column;}.e-row{grid-template-columns:54px 1fr 50px 70px 28px;}.e-row .ecol-money{display:none;}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📊 進捗管理ダッシュボード<small>目標 → 現状 → ギャップ → 進捗 → 改善策</small></h1>
+  <div class="month-nav">
+    <button onclick="changeMonth(-1)">‹</button>
+    <div class="month-label" id="monthLabel"></div>
+    <button onclick="changeMonth(1)">›</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showPage('sonpo',this)">損保成績</div>
+  <div class="tab" onclick="showPage('life',this)">生命保険</div>
+  <div class="tab" onclick="showPage('kpi',this)">行動KPI</div>
+  <div class="tab" onclick="showPage('daily',this)">日次記録</div>
+  <div class="tab" onclick="showPage('trend',this)">推移グラフ</div>
+  <div class="tab" onclick="showPage('year',this)">年間サマリー</div>
+  <div class="tab" onclick="showPage('help',this)">❓ 使い方</div>
+</div>
+
+<div class="toolbar">
+  <button id="undoBtn" class="tb-btn" onclick="doUndo()" disabled>↶ 元に戻す</button>
+  <button class="tb-btn" onclick="exportBackup()">⭳ バックアップ保存</button>
+  <label class="tb-btn"><span>⭱ 復元</span><input type="file" accept="application/json,.json" onchange="importBackup(this)" hidden></label>
+  <span class="tb-note" id="tb-note"></span>
+</div>
+
+<div class="content">
+
+  <div class="page active" id="page-sonpo">
+    <div class="section-title">損保 月次成績 <span class="hint">／ 当月（<span class="cur-ym"></span>）に<b>計上</b>される保険料の集計（千円）</span></div>
+    <div class="cards-grid" id="sonpo-cards"></div>
+
+    <!-- 契約明細登録 -->
+    <div class="entry-panel">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;">契約を追加 <span style="font-size:11px;font-weight:400;color:var(--sub);">／ 計上月を指定（例：6月に獲得 → 計上月を8月にすれば8月へ計上）</span></div>
+      <div class="entry-form">
+        <div class="ef-field"><label>種別</label><select id="ef-type"><option value="new">新規</option><option value="renew">更新</option></select></div>
+        <div class="ef-field"><label>計上月</label><input type="month" id="ef-month"></div>
+        <div class="ef-field"><label>保険料(千円)</label><input type="number" id="ef-money" min="0" value="0"></div>
+        <div class="ef-field"><label>獲得日</label><input type="date" id="ef-acq"></div>
+        <div class="ef-field" style="flex:1;"><label>メモ（顧客名等）</label><input type="text" id="ef-memo" placeholder="任意"></div>
+        <button class="ef-add" onclick="addEntry()">＋ 追加</button>
+      </div>
+      <div class="entry-list">
+        <h4>当月（<span class="cur-ym"></span>）に計上される契約</h4>
+        <div id="entry-current"></div>
+        <h4>先行獲得（翌月以降に計上予定）<span style="font-weight:400;">＝着地見込み</span></h4>
+        <div id="entry-future"></div>
+      </div>
+    </div>
+
+    <button class="save-btn" onclick="saveData()">保存（現実を直視する）</button>
+    <div class="saved-msg" id="msg-sonpo"></div>
+  </div>
+
+  <div class="page" id="page-life">
+    <div class="section-title">生命保険 手数料 <span class="hint">／ 単位：千円</span></div>
+    <div class="cards-grid" id="life-cards"></div>
+    <button class="save-btn" onclick="saveData()">保存</button>
+    <div class="saved-msg" id="msg-life"></div>
+  </div>
+
+  <div class="page" id="page-kpi">
+    <div class="section-title">行動KPI <span class="hint">／ 週単位で管理・日次記録から各週を自動集計</span></div>
+    <div class="cards-grid" id="kpi-cards"></div>
+    <button class="save-btn" onclick="saveData()">保存</button>
+    <div class="saved-msg" id="msg-kpi"></div>
+  </div>
+
+  <div class="page" id="page-daily">
+    <div class="section-title">日次行動記録 <span class="hint">／ 自分の手で入力し「気づき」を得る</span></div>
+    <div class="daily">
+      <div class="daily-top">
+        <div id="daily-month" style="font-weight:600;color:#4a6075;font-size:14px;"></div>
+        <button class="add-btn" onclick="addTodayLog()">＋ 今日を追加</button>
+      </div>
+      <div class="log-h"><div>日付</div><div>経営者接触</div><div>建築業価値提供</div><div>未来資産構築</div><div></div></div>
+      <div id="daily-rows"></div>
+      <div class="sumbar">
+        <div class="si"><div class="sv" style="color:var(--navy-l)" id="sum-exec">0</div><div class="sl">経営者接触（月計）</div></div>
+        <div class="si"><div class="sv" style="color:var(--good)" id="sum-arch">0</div><div class="sl">建築業価値提供（月計）</div></div>
+        <div class="si"><div class="sv" style="color:#6b46c1" id="sum-asset">0</div><div class="sl">未来資産構築（月計）</div></div>
+      </div>
+    </div>
+    <button class="save-btn" onclick="saveData()">保存</button>
+    <div class="saved-msg" id="msg-daily"></div>
+  </div>
+
+  <div class="page" id="page-trend">
+    <div class="section-title">ギャップ推移 <span class="hint">／ ギャップが減れば改善効果あり・増えれば逆効果（5-08〜5-11図）</span></div>
+    <div style="margin-bottom:14px;">
+      <select id="trend-metric" onchange="renderTrend()" style="padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;">
+        <option value="sonpoTotal_mon">損保合計 保険料(千円)</option>
+        <option value="sonpoNew_mon">損保新規 保険料(千円)</option>
+        <option value="sonpoRenew_mon">損保更新 保険料(千円)</option>
+        <option value="life_mon">生保 手数料(千円)</option>
+        <option value="kpiExec_cnt">経営者接触</option>
+        <option value="kpiArch_cnt">建築業向け価値提供</option>
+        <option value="kpiAsset_cnt">未来資産構築</option>
+      </select>
+    </div>
+    <div class="trend-wrap">
+      <div class="trend-head">
+        <div style="font-size:13px;font-weight:700;" id="trend-title"></div>
+        <div class="trend-diag" id="trend-diag"></div>
+      </div>
+      <div class="trend-chart" id="trend-chart"></div>
+      <div class="legend">
+        <span><i style="background:var(--actual)"></i>現状（実績）</span>
+        <span><i style="background:var(--gap)"></i>ギャップ（不足分）</span>
+        <span><i style="background:#e8f4ec;border:1px solid var(--good)"></i>目標超過</span>
+        <span><i style="background:repeating-linear-gradient(45deg,var(--actual),var(--actual) 3px,#e3ebf2 3px,#e3ebf2 6px)"></i>見込（先行獲得した前倒し契約）</span>
+      </div>
+    </div>
+    <div class="principle" style="margin-top:16px;">
+      <h3>この本の核心（45枚より）</h3>
+      <ul>
+        <li>進捗管理は「報告」ではなく「改善」のためにある</li>
+        <li>まず現状（事実）を直視し、その後に進捗（見通し）を判断する</li>
+        <li>ギャップが一目でわかる積み上げ棒グラフが最強</li>
+        <li>改善策は「量 → やり方 → 質」の順で、一度に一つ</li>
+        <li>シンプルで毎日続けられる仕組みこそ成果につながる</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="page" id="page-year">
+    <div class="section-title">年間サマリー <span class="hint">／ <span id="year-label"></span>（4月〜翌3月）の累計 vs 年間目標</span></div>
+    <div id="year-body"></div>
+  </div>
+
+  <div class="page" id="page-help">
+    <div class="section-title">使い方ガイド <span class="hint">／ このアプリの操作まとめ</span></div>
+
+    <div class="help-card">
+      <h3>📅 月の切り替え</h3>
+      <p>画面右上の <b>‹ ›</b> で月を移動します。すべての画面はその月の数字を表示します。年度（4月〜翌3月）で管理しています。</p>
+    </div>
+
+    <div class="help-card">
+      <h3>🚗 損保成績（毎日の入力）</h3>
+      <ol>
+        <li>その日に上げた契約の保険料を、緑の <b>「＋今日上げた分」</b> 欄に入力して <b>加算</b>（Enterでも可）。</li>
+        <li>累計が自動で増え、グラフ・ギャップに即反映されます。<br><span class="ex">例：初日500を加算 → 翌日300を加算 → 現状累計は自動で800</span></li>
+        <li>入力ミスは「現状累計」欄を直接書き換えて修正できます。</li>
+        <li><b>新規の目標</b>は「合計目標 − 更新目標」で自動計算されます。毎月、合計カードの<b>更新目標</b>だけ入れ替えてください。</li>
+      </ol>
+    </div>
+
+    <div class="help-card">
+      <h3>📆 将来の契約予定（前倒し契約）</h3>
+      <ol>
+        <li>損保ページ下部の <b>「契約を追加」</b> で、種別・<b>計上月</b>・保険料・獲得日を入力して追加。</li>
+        <li>例：6月に獲得した8月計上の更新契約 → 計上月を「8月」にすれば<b>8月の成績</b>に自動計上。</li>
+        <li>登録した契約は「<b>先行獲得（翌月以降に計上予定）</b>」に月別の見込みとしてまとまります。</li>
+        <li>計上月へ月ナビで移動すると、その月の現状に自動で乗ります。</li>
+      </ol>
+    </div>
+
+    <div class="help-card">
+      <h3>💜 生命保険</h3>
+      <p>損保と同じく、緑の「＋今日上げた分」で手数料（千円）を加算していきます。</p>
+    </div>
+
+    <div class="help-card">
+      <h3>🎯 行動KPI ＆ 日次記録</h3>
+      <ol>
+        <li><b>日次記録</b>タブで「＋今日を追加」→ 経営者接触・建築業価値提供・未来資産構築の件数を入力。</li>
+        <li>入力した数字は<b>週ごとに自動集計</b>され、行動KPIタブの週バー・月間達成率に反映されます。</li>
+        <li>各KPIの<b>週目標</b>はKPIタブで設定します。</li>
+      </ol>
+    </div>
+
+    <div class="help-card">
+      <h3>📊 推移グラフ</h3>
+      <p>年度（4月〜翌3月）のギャップ推移を積み上げ棒で表示。棒の<b>上＝現状</b>、棒の<b>中＝ギャップ（不足分）</b>。上のメニューで指標を切り替えられます。ギャップが減れば改善効果あり・増えれば逆効果と自動診断します。</p>
+    </div>
+
+    <div class="help-card">
+      <h3>📈 年間サマリー</h3>
+      <p>年度の4月から当月までの累計を、年間目標と比べて表示。各項目の年間目標はその場で編集できます。</p>
+    </div>
+
+    <div class="help-card">
+      <h3>💾 バックアップ・復元・元に戻す</h3>
+      <ol>
+        <li><b>バックアップ保存</b>：全データをファイルに保存。月初など定期的に保存しておくと安心です。</li>
+        <li><b>復元</b>：保存したファイルを選んでデータを戻します。</li>
+        <li><b>↶ 元に戻す</b>：直前の操作（加算・保存・契約の追加削除など）を取り消します。</li>
+      </ol>
+      <p class="note">※ データはこのブラウザ内に保存されます。ブラウザのデータを消すと失われるので、バックアップ保存を習慣にしてください。</p>
+    </div>
+
+    <div class="help-card help-philosophy">
+      <h3>📘 この管理表の考え方（元の本より）</h3>
+      <ul>
+        <li>進捗管理は「報告」ではなく「<b>改善</b>」のためにある</li>
+        <li>まず<b>現状（事実）</b>を直視し、その後に<b>進捗（見通し）</b>を判断する</li>
+        <li><b>ギャップ</b>が一目でわかる積み上げ棒グラフが最強</li>
+        <li>改善策は「<b>量 → やり方 → 質</b>」の順で、一度に一つ</li>
+        <li>シンプルで毎日続けられる仕組みこそ成果につながる</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let curY=new Date().getFullYear();
+let curM=new Date().getMonth();
+const LS='pm3-';
+const ENTRIES_KEY='pm3-sonpo-entries';
+
+const SONPO=[
+  {key:'sonpoNew',  type:'new',  title:'新規契約',badge:'b-new',  dtc:10,dtm:200},
+  {key:'sonpoRenew',type:'renew',title:'更新契約',badge:'b-renew',dtc:30,dtm:300},
+];
+const KPIS=[
+  {key:'kpiExec', title:'経営者接触',        badge:'b-new',   wk:5, daily:'exec'},
+  {key:'kpiArch', title:'建築業向け価値提供', badge:'b-renew', wk:3, daily:'arch'},
+  {key:'kpiAsset',title:'未来資産構築',       badge:'b-total', wk:3, daily:'asset'},
+];
+const MOVES=['量を増やす','やり方を変える','質を上げる','期限を再調整'];
+
+let model={}, dailyData={};
+let sonpoEntries=[];   // {id,type,month:'YYYY-MM',count,money,acq,memo}
+
+function mkey(y,m){return `${y}-${String(m+1).padStart(2,'0')}`;}
+function getKey(){return LS+mkey(curY,curM);}
+function rateCls(r){return r>=100?'rate-good':r>=70?'rate-warn':'rate-bad';}
+function num(v){return +v||0;}
+function weeksInMonth(y,m){return Math.ceil(new Date(y,m+1,0).getDate()/7);}
+function weekOfDay(d){return Math.min(Math.ceil(d/7),5);}
+// 年度（4月〜翌3月）。月インデックス: 4月=3
+function fyOf(y,m){return m>=3?y:y-1;}
+function fyLabel(y,m){return fyOf(y,m)+'年度';}
+function fyMonths(y,m){const fy=fyOf(y,m);const arr=[];for(let i=0;i<12;i++){const mm=(3+i)%12;const yy=fy+(3+i>=12?1:0);arr.push({y:yy,m:mm});}return arr;}
+
+/* 明細から計上集計 */
+function sumSonpo(y,m,type){
+  const mk=mkey(y,m);let c=0,mo=0;
+  sonpoEntries.forEach(e=>{if(e.month===mk&&(!type||e.type===type)){c+=num(e.count);mo+=num(e.money);}});
+  return{count:c,money:mo};
+}
+
+function defaults(){
+  const d={};
+  SONPO.forEach(s=>{d[s.key+'_mt']=s.dtm;d[s.key+'_ma']=0;d[s.key+'_move']=[];d[s.key+'_memo']='';});
+  d['sonpoMonTotalTarget']=6500;d['sonpoRenew_mt']=0;
+  KPIS.forEach(s=>{d[s.key+'_wt']=s.wk;d[s.key+'_move']=[];d[s.key+'_memo']='';});
+  d['life_ma']=0;d['life_mt']=420;d['life_move']=[];d['life_memo']='';
+  d['daily']={};
+  d['yt_sonpoTotal_mon']=78000;d['yt_life_mon']=5000;
+  KPIS.forEach(s=>{d['yt_'+s.key+'_cnt']=s.wk*52;});
+  return d;
+}
+
+function updateMonthLabel(){
+  document.getElementById('monthLabel').textContent=`${curY}年${curM+1}月`;
+  document.getElementById('daily-month').textContent=`${curY}年${curM+1}月`;
+  document.getElementById('year-label').textContent=fyLabel(curY,curM);
+  document.querySelectorAll('.cur-ym').forEach(e=>e.textContent=`${curY}年${curM+1}月`);
+}
+function changeMonth(d){curM+=d;if(curM<0){curM=11;curY--;}if(curM>11){curM=0;curY++;}updateMonthLabel();loadData();}
+function showPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');el.classList.add('active');
+  if(name==='trend')renderTrend();
+  if(name==='year')renderYear();
+}
+
+function metricBlock(key,kind,label){
+  const id=key+'_'+kind;
+  return `<div class="metric-block">
+    <div class="mb-label">${label}</div>
+    <div class="steps">
+      <div class="step target"><div class="lbl">目標</div><div class="val" id="${id}_st">0</div></div>
+      <div class="step actual"><div class="lbl">現状</div><div class="val" id="${id}_sa">0</div></div>
+      <div class="step gap" id="${id}_gbox"><div class="lbl">ギャップ</div><div class="val" id="${id}_sg">0</div></div>
+    </div>
+    <div class="barbox">
+      <div class="bar-outer">
+        <div class="bar-fill" id="${id}_fill" style="height:0%"><span class="bar-anum" id="${id}_anum"></span></div>
+        <div class="bar-band" id="${id}_band" style="height:100%"><span class="bar-gnum" id="${id}_gnum"></span></div>
+      </div>
+      <div class="rate-mini"><div class="r" id="${id}_rate">0%</div><div class="rl">達成率</div></div>
+    </div>
+  </div>`;
+}
+
+function sonpoCardHTML(m){
+  // 新規の保険料目標は「合計−更新」の自動計算（読み取り専用）
+  const mtRow = m.type==='new'
+    ? `<div class="io-row"><label>目標</label><input type="number" id="${m.key}_mt" readonly style="background:#f5f8fb;color:var(--navy);font-weight:700;"></div>
+       <div style="grid-column:1/-1;font-size:10px;color:var(--sub);margin:-4px 0 2px;">＝合計目標 − 更新目標（自動）</div>`
+    : `<div class="io-row"><label>目標</label><input type="number" min="0" id="${m.key}_mt" oninput="recalc()"></div>`;
+  return `<div class="card">
+    <div class="card-head"><div class="card-title">${m.title}</div><div class="badge ${m.badge}">損保</div></div>
+    <div class="io-grid">
+      <div class="io-unit">保険料（千円）</div>
+      ${mtRow}
+      <div class="io-row"><label>現状累計</label><input type="number" min="0" id="${m.key}_ma" oninput="recalc()"></div>
+    </div>
+    <div class="quick-add">
+      <span class="qa-lbl">＋ 今日上げた分</span>
+      <input type="number" min="0" id="${m.key}_add" placeholder="例: 300" onkeydown="if(event.key==='Enter')quickAdd('${m.key}')">
+      <button class="qa-btn" onclick="quickAdd('${m.key}')">加算</button>
+    </div>
+    <div id="${m.key}_entnote" style="font-size:10px;color:var(--sub);margin:-4px 0 6px;"></div>
+    <div class="dual">${metricBlock(m.key,'m','保険料')}</div>
+    ${nextMoveHTML(m.key)}
+  </div>`;
+}
+function sonpoTotalHTML(){
+  return `<div class="card">
+    <div class="card-head"><div class="card-title">新規＋更新 合計</div><div class="badge b-total">合計</div></div>
+    <div class="io-grid" style="grid-template-columns:1fr;">
+      <div class="io-unit">保険料 月目標（合計・固定）</div>
+      <div class="io-row"><label>合計目標</label><input type="number" min="0" id="sonpoTotalMT" oninput="recalc()"><span style="font-size:11px;color:var(--sub);font-weight:700;">千円</span></div>
+      <div style="font-size:10px;color:var(--sub);">この合計から更新目標を引いた額が、新規の目標になります</div>
+    </div>
+    <div class="dual">${metricBlock('tot','m','保険料(千円)')}</div>
+    <div style="font-size:11px;color:var(--sub);text-align:center;margin-top:6px;">
+      保険料 新規<b id="tot_new_m">0</b>＋更新<b id="tot_renew_m">0</b> 千円</div>
+  </div>`;
+}
+function lifeCardHTML(){
+  return `<div class="card">
+    <div class="card-head"><div class="card-title">当月手数料</div><div class="badge b-life">生保</div></div>
+    <div class="io-grid">
+      <div class="io-unit">手数料（千円）</div>
+      <div class="io-row"><label>目標</label><input type="number" min="0" id="life_mt" oninput="recalc()"></div>
+      <div class="io-row"><label>現状累計</label><input type="number" min="0" id="life_ma" oninput="recalc()"></div>
+    </div>
+    <div class="quick-add">
+      <span class="qa-lbl">＋ 今日上げた分</span>
+      <input type="number" min="0" id="life_add" placeholder="例: 50" onkeydown="if(event.key==='Enter')quickAdd('life')">
+      <button class="qa-btn" onclick="quickAdd('life')">加算</button>
+    </div>
+    <div class="dual">${metricBlock('life','m','手数料')}</div>
+    ${nextMoveHTML('life')}
+  </div>`;
+}
+function kpiCardHTML(m){
+  return `<div class="card">
+    <div class="card-head"><div class="card-title">${m.title}</div><div class="badge ${m.badge}">週KPI</div></div>
+    <div class="io-row" style="margin-bottom:10px;"><label>週目標</label><input type="number" min="0" id="${m.key}_wt" oninput="recalc()"><span style="font-size:11px;color:var(--sub);font-weight:700;">件/週</span></div>
+    <div class="steps">
+      <div class="step target"><div class="lbl">月目標</div><div class="val" id="${m.key}_st">0</div></div>
+      <div class="step actual"><div class="lbl">月実績</div><div class="val" id="${m.key}_sa">0</div></div>
+      <div class="step gap" id="${m.key}_gbox"><div class="lbl">ギャップ</div><div class="val" id="${m.key}_sg">0</div></div>
+    </div>
+    <div class="mb-label" style="text-align:left;margin:6px 0 2px;">週ごとの進捗（実績 / 週目標）</div>
+    <div class="week-strip" id="${m.key}_weeks"></div>
+    <div class="rate-mini" style="margin-top:6px;"><div class="r" id="${m.key}_rate">0%</div><div class="rl">月間達成率</div></div>
+    ${nextMoveHTML(m.key)}
+  </div>`;
+}
+function nextMoveHTML(key){
+  return `<div class="next-move">
+    <div class="nm-title">📝 次の一手（ギャップを見て決める）</div>
+    <div class="nm-opts" id="${key}_opts">${MOVES.map(mv=>`<span class="nm-opt" onclick="toggleMove('${key}','${mv}',this)">${mv}</span>`).join('')}</div>
+    <textarea id="${key}_memo" placeholder="具体的な打ち手・気づきを記入..." oninput="model['${key}_memo']=this.value"></textarea>
+  </div>`;
+}
+function buildCards(){
+  document.getElementById('sonpo-cards').innerHTML=SONPO.map(sonpoCardHTML).join('')+sonpoTotalHTML();
+  document.getElementById('life-cards').innerHTML=lifeCardHTML();
+  document.getElementById('kpi-cards').innerHTML=KPIS.map(kpiCardHTML).join('');
+}
+
+function paint(id,a,t){
+  const rate=t>0?a/t*100:0,gap=t-a;
+  set(id+'_st',t.toLocaleString());set(id+'_sa',a.toLocaleString());
+  const sg=document.getElementById(id+'_sg'),gb=document.getElementById(id+'_gbox');
+  if(sg){if(gap>0){sg.textContent='−'+gap.toLocaleString();gb&&gb.classList.remove('cleared');}
+  else{sg.textContent=gap===0?'達成':'+'+Math.abs(gap).toLocaleString();gb&&gb.classList.add('cleared');}}
+  const f=t>0?Math.min(a/t*100,100):0;
+  set2(id+'_fill','height',f+'%');set2(id+'_band','height',(100-f)+'%');
+  // 棒の中に現状とギャップの数字
+  set(id+'_anum', a>0?a.toLocaleString():'');
+  set(id+'_gnum', gap>0?'-'+gap.toLocaleString():'');
+  const r=document.getElementById(id+'_rate');if(r){r.textContent=rate.toFixed(0)+'%';r.className='r '+rateCls(rate);}
+}
+function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+function set2(id,p,v){const e=document.getElementById(id);if(e)e.style[p]=v;}
+function val(id){const e=document.getElementById(id);return e?e.value:0;}
+
+function recalc(){
+  // 保険料目標：合計固定 − 更新（手入力）＝ 新規（自動）
+  const totalMT=num(val('sonpoTotalMT'));model.sonpoMonTotalTarget=totalMT;
+  const renewMT=num(val('sonpoRenew_mt'));
+  const newMT=Math.max(totalMT-renewMT,0);
+  const newMtInput=document.getElementById('sonpoNew_mt');if(newMtInput)newMtInput.value=newMT;
+  SONPO.forEach(m=>{
+    const mt=(m.type==='new')?newMT:renewMT;
+    const ma=num(val(m.key+'_ma'));
+    model[m.key+'_mt']=mt;model[m.key+'_ma']=ma;
+    const s=sumSonpo(curY,curM,m.type);
+    paint(m.key+'_m',ma+s.money,mt);
+    const note=document.getElementById(m.key+'_entnote');
+    if(note)note.textContent=s.money?`現状＝直接入力 ＋ 明細から +${s.money.toLocaleString()}千円`:'現状＝直接入力＋明細の合計';
+  });
+  const sn=sumSonpo(curY,curM,'new'),sr=sumSonpo(curY,curM,'renew');
+  const nm=model.sonpoNew_ma+sn.money,rm=model.sonpoRenew_ma+sr.money;
+  set('tot_new_m',nm);set('tot_renew_m',rm);
+  paint('tot_m',nm+rm,model.sonpoNew_mt+model.sonpoRenew_mt);
+  const la=num(val('life_ma')),lt=num(val('life_mt'));
+  model.life_ma=la;model.life_mt=lt;paint('life_m',la,lt);
+  recalcKPI();
+}
+function recalcKPI(){
+  const wcount=weeksInMonth(curY,curM);
+  const wk={};KPIS.forEach(m=>wk[m.key]=Array(wcount).fill(0));
+  Object.keys(dailyData).forEach(day=>{
+    const dd=+day.slice(8,10),w=weekOfDay(dd)-1;if(w>=wcount)return;
+    KPIS.forEach(m=>{wk[m.key][w]+=dailyData[day][m.daily]||0;});
+  });
+  KPIS.forEach(m=>{
+    const wt=num(val(m.key+'_wt'));model[m.key+'_wt']=wt;
+    const mt=wt*wcount,ma=wk[m.key].reduce((a,b)=>a+b,0);
+    paint(m.key,ma,mt);
+    const strip=document.getElementById(m.key+'_weeks');strip.innerHTML='';
+    const curWeek=(curY===new Date().getFullYear()&&curM===new Date().getMonth())?weekOfDay(new Date().getDate()):-1;
+    for(let i=0;i<wcount;i++){
+      const a=wk[m.key][i],f=wt>0?Math.min(a/wt*100,100):0;
+      const div=document.createElement('div');div.className='wk'+(i+1===curWeek?' cur':'');
+      div.innerHTML=`<div class="wbar"><div class="wfill" style="height:${f}%"></div><div class="wband" style="height:${100-f}%"></div></div>
+        <div class="wnum" style="color:${a>=wt?'var(--good)':'var(--gap)'}">${a}/${wt}</div><div class="wlbl">W${i+1}</div>`;
+      strip.appendChild(div);
+    }
+  });
+}
+function toggleMove(key,mv,el){el.classList.toggle('on');let a=model[key+'_move']||[];a.includes(mv)?a=a.filter(x=>x!==mv):a.push(mv);model[key+'_move']=a;}
+
+/* 当月の現状累計に「今日の分」を加算するクイック入力 */
+function quickAdd(key){
+  const inp=document.getElementById(key+'_add');
+  const v=num(inp.value);
+  if(v===0){inp.focus();return;}
+  const cur=num(val(key+'_ma'));
+  document.getElementById(key+'_ma').value=cur+v;
+  inp.value='';
+  recalc();
+  saveData();
+  inp.focus();
+}
+
+/* ===== 契約明細 ===== */
+function addEntry(){
+  const type=val('ef-type'),month=val('ef-month'),money=num(val('ef-money')),acq=val('ef-acq'),memo=val('ef-memo');
+  if(!month){alert('計上月を選択してください');return;}
+  if(money<=0){alert('保険料を入力してください');return;}
+  pushUndo();
+  sonpoEntries.push({id:Date.now()+''+Math.random().toString(36).slice(2,6),type,month,count:0,money,acq,memo});
+  saveEntries();
+  document.getElementById('ef-money').value=0;document.getElementById('ef-memo').value='';
+  renderEntries();recalc();
+}
+function delEntry(id){pushUndo();sonpoEntries=sonpoEntries.filter(e=>e.id!==id);saveEntries();renderEntries();recalc();}
+function saveEntries(){localStorage.setItem(ENTRIES_KEY,JSON.stringify(sonpoEntries));}
+function eRowHTML(e){
+  const t=new Date();const ymNow=mkey(curY,curM);
+  return `<div class="e-row e-row-money">
+    <span class="etype ${e.type==='new'?'et-new':'et-renew'}">${e.type==='new'?'新規':'更新'}</span>
+    <span>${e.month.replace('-','/')}計上${e.memo?' ・ '+e.memo:''}${e.acq?' <span style="color:var(--sub)">(獲得'+e.acq.slice(5).replace('-','/')+')</span>':''}</span>
+    <span style="text-align:right;">${num(e.money).toLocaleString()}千円</span>
+    <button class="edel" onclick="delEntry('${e.id}')">×</button>
+  </div>`;
+}
+function renderEntries(){
+  const ymNow=mkey(curY,curM);
+  const cur=sonpoEntries.filter(e=>e.month===ymNow).sort((a,b)=>(b.acq||'').localeCompare(a.acq||''));
+  const fut=sonpoEntries.filter(e=>e.month>ymNow).sort((a,b)=>a.month.localeCompare(b.month));
+  const cEl=document.getElementById('entry-current'),fEl=document.getElementById('entry-future');
+  cEl.innerHTML=cur.length?cur.map(eRowHTML).join(''):'<div class="e-empty">当月計上の契約はまだありません</div>';
+  if(fut.length){
+    // 計上月ごとにグループ化して、月別の見込みサマリーを表示
+    const groups={};
+    fut.forEach(e=>{(groups[e.month]=groups[e.month]||[]).push(e);});
+    const totalTarget=num(model.sonpoMonTotalTarget)||6500;
+    let html='';
+    Object.keys(groups).sort().forEach(mon=>{
+      const list=groups[mon];
+      let nm=0,rm=0;
+      list.forEach(e=>{if(e.type==='new'){nm+=num(e.money);}else{rm+=num(e.money);}});
+      const tm=nm+rm;
+      const pct=totalTarget>0?Math.round(tm/totalTarget*100):0;
+      const [yy,mm]=mon.split('-');
+      html+=`<div class="fut-group">
+        <div class="fut-head">
+          <span class="fut-month">${yy}年${+mm}月 計上見込み</span>
+          <span class="fut-totals">合計 <b>${tm.toLocaleString()}</b>千円
+            <span class="fut-pct">（合計目標${totalTarget.toLocaleString()}千円の ${pct}%）</span></span>
+        </div>
+        <div class="fut-break">新規 ${nm.toLocaleString()}千円 ／ 更新 ${rm.toLocaleString()}千円</div>
+        ${list.sort((a,b)=>(b.acq||'').localeCompare(a.acq||'')).map(eRowHTML).join('')}
+      </div>`;
+    });
+    fEl.innerHTML=html;
+  }else{
+    fEl.innerHTML='<div class="e-empty">先行獲得（翌月以降計上）の契約はありません</div>';
+  }
+}
+
+/* ===== 日次 ===== */
+function renderDaily(){
+  const c=document.getElementById('daily-rows');c.innerHTML='';
+  Object.keys(dailyData).sort().forEach(day=>{
+    const d=dailyData[day],r=document.createElement('div');r.className='log-r';
+    r.innerHTML=`<div class="dl">${day.slice(5)}</div>
+      <div><input type="number" min="0" value="${d.exec||0}" oninput="updDaily('${day}','exec',this.value)"></div>
+      <div><input type="number" min="0" value="${d.arch||0}" oninput="updDaily('${day}','arch',this.value)"></div>
+      <div><input type="number" min="0" value="${d.asset||0}" oninput="updDaily('${day}','asset',this.value)"></div>
+      <button class="del" onclick="delDaily('${day}')">×</button>`;
+    c.appendChild(r);
+  });
+  sumDaily();
+}
+function updDaily(day,k,v){if(!dailyData[day])dailyData[day]={};dailyData[day][k]=num(v);sumDaily();}
+function delDaily(day){delete dailyData[day];renderDaily();}
+function sumDaily(){
+  let e=0,a=0,s=0;Object.values(dailyData).forEach(d=>{e+=d.exec||0;a+=d.arch||0;s+=d.asset||0;});
+  set('sum-exec',e);set('sum-arch',a);set('sum-asset',s);recalcKPI();
+}
+function addTodayLog(){
+  const t=new Date();const day=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  if(!dailyData[day]){dailyData[day]={exec:0,arch:0,asset:0};renderDaily();}
+}
+
+/* ===== 推移 ===== */
+function getMonthMetric(d,metric,y,m,isCur){
+  const src=isCur?model:d;
+  if(metric==='sonpoTotal_mon'){const s=sumSonpo(y,m,null);return{a:(src.sonpoNew_ma||0)+(src.sonpoRenew_ma||0)+s.money,t:(src.sonpoNew_mt||0)+(src.sonpoRenew_mt||0)};}
+  if(metric==='sonpoNew_mon'){return{a:(src.sonpoNew_ma||0)+sumSonpo(y,m,'new').money,t:src.sonpoNew_mt||0};}
+  if(metric==='sonpoRenew_mon'){return{a:(src.sonpoRenew_ma||0)+sumSonpo(y,m,'renew').money,t:src.sonpoRenew_mt||0};}
+  if(metric==='life_mon'){return{a:src.life_ma||0,t:src.life_mt||0};}
+  const km=metric.replace('_cnt','');const kdef=KPIS.find(k=>k.key===km);
+  if(kdef){const wcount=weeksInMonth(y,m),wt=src[km+'_wt']||0;let act=0;const dd=src.daily||{};Object.keys(dd).forEach(day=>{act+=dd[day][kdef.daily]||0;});return{a:act,t:wt*wcount};}
+  return{a:0,t:0};
+}
+function renderTrend(){
+  const metric=document.getElementById('trend-metric').value;
+  const tmap={sonpoTotal_mon:'損保合計 保険料(千円)',sonpoNew_mon:'損保新規 保険料(千円)',sonpoRenew_mon:'損保更新 保険料(千円)',life_mon:'生保 手数料(千円)',kpiExec_cnt:'経営者接触',kpiArch_cnt:'建築業向け価値提供',kpiAsset_cnt:'未来資産構築'};
+  document.getElementById('trend-title').textContent=`${fyLabel(curY,curM)}（4月〜翌3月）${tmap[metric]} のギャップ推移`;
+  // 当月が属する年度（4月〜翌3月）の12ヶ月を表示
+  const months=fyMonths(curY,curM);
+  const curT=getMonthMetric({},metric,curY,curM,true).t;  // 未来月の目標フォールバック
+  const data=months.map(o=>{
+    const raw=localStorage.getItem(LS+mkey(o.y,o.m));const d=raw?JSON.parse(raw):{};
+    const isCur=(o.y===curY&&o.m===curM);const isFut=(o.y*12+o.m)>(curY*12+curM);
+    const mm=getMonthMetric(d,metric,o.y,o.m,isCur);
+    let t=mm.t;if(isFut&&t===0)t=curT;
+    return{...o,a:mm.a,t,gap:Math.max(t-mm.a,0),over:Math.max(mm.a-t,0),future:isFut};
+  });
+  const maxV=Math.max(...data.map(d=>Math.max(d.t,d.a)),1);
+  const chart=document.getElementById('trend-chart');chart.innerHTML='';
+  data.forEach(d=>{
+    const isCur=(d.y===curY&&d.m===curM);const col=document.createElement('div');col.className='tcol'+(isCur?' current':'')+(d.future?' future':'');
+    const H=300,aH=d.a/maxV*H,gH=d.gap/maxV*H;
+    const hasData=(d.t>0||d.a>0);
+    // 棒の上：現状（実績）の数字（目標超過は緑）。棒の中：ギャップ（不足分）
+    const topNum = hasData ? `<div class="t-topnum${d.over>0?' over':''}">${d.a.toLocaleString()}</div>` : '';
+    col.innerHTML=`${topNum}<div class="tbar" style="height:${H}px;justify-content:flex-end;">
+      <div class="t-gap" style="height:${gH}px;">${d.gap>0?`<span>-${d.gap.toLocaleString()}</span>`:''}</div>
+      <div class="t-actual" style="height:${aH}px;"></div></div><div class="tlbl">${d.m+1}月${d.future?'<br><span style="font-size:8px;">見込</span>':''}</div>`;
+    chart.appendChild(col);
+  });
+  const recent=data.filter(d=>!d.future&&d.t>0).slice(-3);const diag=document.getElementById('trend-diag');
+  if(recent.length<2){diag.textContent='データ蓄積中';diag.className='trend-diag diag-none';return;}
+  const f=recent[0].gap,l=recent[recent.length-1].gap;
+  if(l===0){diag.textContent='✓ 計画通り進んでいる';diag.className='trend-diag diag-good';}
+  else if(l<f){diag.textContent='↘ ギャップ減少：改善策が効果を出している';diag.className='trend-diag diag-good';}
+  else if(l>f){diag.textContent='↗ ギャップ増加：対策が逆効果の可能性';diag.className='trend-diag diag-bad';}
+  else{diag.textContent='→ ギャップ変化なし：改善効果が出ていない';diag.className='trend-diag diag-warn';}
+}
+
+/* ===== 年間 ===== */
+const YEAR_ITEMS=[
+  {key:'sonpoTotal_mon',title:'損保合計 保険料',unit:'千円',metric:'sonpoTotal_mon'},
+  {key:'life_mon',title:'生命保険 手数料',unit:'千円',metric:'life_mon'},
+  {key:'kpiExec_cnt',title:'経営者接触',unit:'件',metric:'kpiExec_cnt'},
+  {key:'kpiArch_cnt',title:'建築業向け価値提供',unit:'件',metric:'kpiArch_cnt'},
+  {key:'kpiAsset_cnt',title:'未来資産構築',unit:'件',metric:'kpiAsset_cnt'},
+];
+function yearAccumulate(metric){
+  // 年度の4月〜当月までを累計
+  const months=fyMonths(curY,curM);
+  const idx=(curM-3+12)%12; // 当月の年度内ポジション（4月=0）
+  let sum=0;
+  for(let i=0;i<=idx;i++){
+    const o=months[i];const isCur=(o.y===curY&&o.m===curM);
+    const raw=localStorage.getItem(LS+mkey(o.y,o.m));const d=raw?JSON.parse(raw):{};
+    sum+=getMonthMetric(d,metric,o.y,o.m,isCur).a;
+  }
+  return sum;
+}
+function renderYear(){
+  const body=document.getElementById('year-body');body.innerHTML='';
+  YEAR_ITEMS.forEach(it=>{
+    const acc=yearAccumulate(it.metric);
+    const yt=model['yt_'+it.key]!==undefined?model['yt_'+it.key]:0;
+    const pct=yt>0?Math.min(acc/yt*100,100):0,rate=yt>0?acc/yt*100:0;
+    const div=document.createElement('div');div.className='year-row';
+    div.innerHTML=`<div class="yr-head"><div class="yr-title">${it.title}</div>
+      <div class="yr-input">年間目標 <input type="number" min="0" value="${yt}" onchange="setYearTarget('${it.key}',this.value)"> ${it.unit}</div></div>
+      <div class="yr-bar-bg"><div class="yr-bar" style="width:${pct}%"></div></div>
+      <div class="yr-meta"><span>累計 <b>${acc.toLocaleString()}</b> ${it.unit}（4月〜${curM+1}月）</span><span class="${rateCls(rate)}" style="font-weight:700;">${rate.toFixed(0)}%</span><span>残り <b>${Math.max(yt-acc,0).toLocaleString()}</b> ${it.unit}</span></div>`;
+    body.appendChild(div);
+  });
+}
+function setYearTarget(key,v){model['yt_'+key]=num(v);saveData();renderYear();}
+
+/* ===== UNDO・バックアップ ===== */
+let undoStack=[];
+function snapshot(){
+  const s={};Object.keys(localStorage).forEach(k=>{if(k.startsWith('pm3-'))s[k]=localStorage.getItem(k);});
+  return JSON.stringify(s);
+}
+function pushUndo(){undoStack.push(snapshot());if(undoStack.length>40)undoStack.shift();updateUndoBtn();}
+function updateUndoBtn(){const b=document.getElementById('undoBtn');if(b)b.disabled=undoStack.length===0;}
+function applyState(obj){
+  Object.keys(localStorage).filter(k=>k.startsWith('pm3-')).forEach(k=>localStorage.removeItem(k));
+  Object.keys(obj).forEach(k=>localStorage.setItem(k,obj[k]));
+  sonpoEntries=JSON.parse(localStorage.getItem(ENTRIES_KEY)||'[]');
+}
+function doUndo(){
+  if(!undoStack.length)return;
+  applyState(JSON.parse(undoStack.pop()));
+  loadData();updateUndoBtn();tbNote('↶ 元に戻しました');
+}
+function exportBackup(){
+  const blob=new Blob([snapshot()],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='進捗管理バックアップ_'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);a.click();a.remove();
+  tbNote('⭳ バックアップを保存しました');
+}
+function importBackup(input){
+  const f=input.files[0];if(!f)return;
+  if(!confirm('現在のデータを、選んだバックアップで上書きします。よろしいですか？（元に戻すで復旧できます）')){input.value='';return;}
+  const r=new FileReader();
+  r.onload=()=>{
+    try{const obj=JSON.parse(r.result);pushUndo();applyState(obj);loadData();tbNote('⭱ 復元しました');}
+    catch(e){alert('ファイルを読み込めませんでした。正しいバックアップファイルか確認してください。');}
+    input.value='';
+  };
+  r.readAsText(f);
+}
+function tbNote(msg){const e=document.getElementById('tb-note');if(e){e.textContent=msg;setTimeout(()=>e.textContent='',2500);}}
+
+/* ===== 保存・読込 ===== */
+function saveData(){
+  pushUndo();
+  model.daily=dailyData;
+  [...SONPO.map(s=>s.key),'life',...KPIS.map(k=>k.key)].forEach(k=>{const t=document.getElementById(k+'_memo');if(t)model[k+'_memo']=t.value;});
+  localStorage.setItem(getKey(),JSON.stringify(model));
+  saveEntries();
+  ['sonpo','life','kpi','daily'].forEach(id=>{const e=document.getElementById('msg-'+id);if(e){e.textContent='✓ 保存しました';setTimeout(()=>e.textContent='',2000);}});
+}
+function loadData(){
+  const raw=localStorage.getItem(getKey());
+  model=raw?JSON.parse(raw):defaults();
+  const def=defaults();for(const k in def)if(model[k]===undefined)model[k]=def[k];
+  dailyData=model.daily||{};
+  SONPO.forEach(m=>{document.getElementById(m.key+'_mt').value=model[m.key+'_mt'];document.getElementById(m.key+'_ma').value=model[m.key+'_ma'];});
+  document.getElementById('sonpoTotalMT').value=model.sonpoMonTotalTarget!==undefined?model.sonpoMonTotalTarget:6500;
+  document.getElementById('life_ma').value=model.life_ma;document.getElementById('life_mt').value=model.life_mt;
+  KPIS.forEach(m=>{document.getElementById(m.key+'_wt').value=model[m.key+'_wt'];});
+  [...SONPO.map(s=>s.key),'life',...KPIS.map(k=>k.key)].forEach(k=>{
+    const t=document.getElementById(k+'_memo');if(t)t.value=model[k+'_memo']||'';
+    const opts=document.getElementById(k+'_opts');if(opts){const arr=model[k+'_move']||[];[...opts.children].forEach(ch=>ch.classList.toggle('on',arr.includes(ch.textContent)));}
+  });
+  renderEntries();renderDaily();recalc();
+}
+
+/* 初期化 */
+sonpoEntries=JSON.parse(localStorage.getItem(ENTRIES_KEY)||'[]');
+buildCards();
+// 明細フォーム既定値
+document.getElementById('ef-month').value=mkey(curY,curM);
+document.getElementById('ef-acq').value=new Date().toISOString().slice(0,10);
+updateMonthLabel();loadData();
+</script>
+</body>
+</html>
