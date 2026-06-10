@@ -547,7 +547,7 @@ function nextMoveHTML(key){
   return `<div class="next-move">
     <div class="nm-title">📝 次の一手（ギャップを見て決める）</div>
     <div class="nm-opts" id="${key}_opts">${MOVES.map(mv=>`<span class="nm-opt" onclick="toggleMove('${key}','${mv}',this)">${mv}</span>`).join('')}</div>
-    <textarea id="${key}_memo" placeholder="具体的な打ち手・気づきを記入..." oninput="model['${key}_memo']=this.value"></textarea>
+    <textarea id="${key}_memo" placeholder="具体的な打ち手・気づきを記入..." oninput="model['${key}_memo']=this.value;persist()"></textarea>
   </div>`;
 }
 function buildCards(){
@@ -600,6 +600,7 @@ function recalc(){
   const la=num(val('life_ma')),lt=num(val('life_mt'));
   model.life_ma=la;model.life_mt=lt;paint('life_m',la,lt);
   recalcKPI();
+  persist();
 }
 function recalcKPI(){
   const wcount=weeksInMonth(curY,curM);
@@ -623,7 +624,7 @@ function recalcKPI(){
     }
   });
 }
-function toggleMove(key,mv,el){el.classList.toggle('on');let a=model[key+'_move']||[];a.includes(mv)?a=a.filter(x=>x!==mv):a.push(mv);model[key+'_move']=a;}
+function toggleMove(key,mv,el){el.classList.toggle('on');let a=model[key+'_move']||[];a.includes(mv)?a=a.filter(x=>x!==mv):a.push(mv);model[key+'_move']=a;persist();}
 
 /* 当月の現状累計に「今日の分」を加算するクイック入力 */
 function quickAdd(key){
@@ -713,7 +714,7 @@ function updDaily(day,k,v){if(!dailyData[day])dailyData[day]={};dailyData[day][k
 function delDaily(day){delete dailyData[day];renderDaily();}
 function sumDaily(){
   let e=0,a=0,s=0;Object.values(dailyData).forEach(d=>{e+=d.exec||0;a+=d.arch||0;s+=d.asset||0;});
-  set('sum-exec',e);set('sum-arch',a);set('sum-asset',s);recalcKPI();
+  set('sum-exec',e);set('sum-arch',a);set('sum-asset',s);recalcKPI();persist();
 }
 function addTodayLog(){
   const t=new Date();const day=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
@@ -842,6 +843,14 @@ function importBackup(input){
 function tbNote(msg){const e=document.getElementById('tb-note');if(e){e.textContent=msg;setTimeout(()=>e.textContent='',2500);}}
 
 /* ===== 保存・読込 ===== */
+let loadingNow=false;
+// 入力を即時自動保存（UNDO・トーストなし）
+function persist(){
+  if(loadingNow)return;
+  model.daily=dailyData;
+  [...SONPO.map(s=>s.key),'life',...KPIS.map(k=>k.key)].forEach(k=>{const t=document.getElementById(k+'_memo');if(t)model[k+'_memo']=t.value;});
+  localStorage.setItem(getKey(),JSON.stringify(model));
+}
 function saveData(){
   pushUndo();
   model.daily=dailyData;
@@ -851,6 +860,7 @@ function saveData(){
   ['sonpo','life','kpi','daily'].forEach(id=>{const e=document.getElementById('msg-'+id);if(e){e.textContent='✓ 保存しました';setTimeout(()=>e.textContent='',2000);}});
 }
 function loadData(){
+  loadingNow=true;
   const raw=localStorage.getItem(getKey());
   model=raw?JSON.parse(raw):defaults();
   const def=defaults();for(const k in def)if(model[k]===undefined)model[k]=def[k];
@@ -864,6 +874,7 @@ function loadData(){
     const opts=document.getElementById(k+'_opts');if(opts){const arr=model[k+'_move']||[];[...opts.children].forEach(ch=>ch.classList.toggle('on',arr.includes(ch.textContent)));}
   });
   renderEntries();renderDaily();recalc();
+  loadingNow=false;
 }
 
 /* 初期化 */
