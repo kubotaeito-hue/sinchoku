@@ -561,12 +561,17 @@ function paint(id,a,t){
   const sg=document.getElementById(id+'_sg'),gb=document.getElementById(id+'_gbox');
   if(sg){if(gap>0){sg.textContent='−'+gap.toLocaleString();gb&&gb.classList.remove('cleared');}
   else{sg.textContent=gap===0?'達成':'+'+Math.abs(gap).toLocaleString();gb&&gb.classList.add('cleared');}}
-  const f=t>0?Math.min(a/t*100,100):0;
+  // 目標0でも実績があれば棒を満たして表示する
+  const f=t>0?Math.min(a/t*100,100):(a>0?100:0);
   set2(id+'_fill','height',f+'%');set2(id+'_band','height',(100-f)+'%');
   // 棒の中に現状とギャップの数字
   set(id+'_anum', a>0?a.toLocaleString():'');
   set(id+'_gnum', gap>0?'-'+gap.toLocaleString():'');
-  const r=document.getElementById(id+'_rate');if(r){r.textContent=rate.toFixed(0)+'%';r.className='r '+rateCls(rate);}
+  const r=document.getElementById(id+'_rate');
+  if(r){
+    if(t===0&&a>0){r.textContent='目標未設定';r.className='r';r.style.fontSize='13px';}
+    else{r.textContent=rate.toFixed(0)+'%';r.className='r '+rateCls(rate);r.style.fontSize='';}
+  }
 }
 function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function set2(id,p,v){const e=document.getElementById(id);if(e)e.style[p]=v;}
