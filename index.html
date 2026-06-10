@@ -822,10 +822,20 @@ function doUndo(){
   applyState(JSON.parse(undoStack.pop()));
   loadData();updateUndoBtn();tbNote('↶ 元に戻しました');
 }
-function exportBackup(){
-  const blob=new Blob([snapshot()],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='進捗管理バックアップ_'+new Date().toISOString().slice(0,10)+'.json';
+async function exportBackup(){
+  const data=snapshot();
+  const name='進捗管理バックアップ_'+new Date().toISOString().slice(0,10)+'.json';
+  // 対応ブラウザ（Chrome/Edge）では保存先フォルダを選べる。一度選ぶと次回も同じ場所が開く
+  if(window.showSaveFilePicker){
+    try{
+      const handle=await window.showSaveFilePicker({suggestedName:name,types:[{description:'バックアップ(JSON)',accept:{'application/json':['.json']}}]});
+      const w=await handle.createWritable();await w.write(data);await w.close();
+      tbNote('⭳ バックアップを保存しました');return;
+    }catch(e){ if(e&&e.name==='AbortError')return; }
+  }
+  // フォールバック：通常ダウンロード（ダウンロードフォルダ）
+  const blob=new Blob([data],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
   document.body.appendChild(a);a.click();a.remove();
   tbNote('⭳ バックアップを保存しました');
 }
