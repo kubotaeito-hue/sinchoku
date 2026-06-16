@@ -69,6 +69,21 @@
   .bar-band{width:100%;background:repeating-linear-gradient(45deg,#fff,#fff 5px,#eef3f8 5px,#eef3f8 10px);position:relative;}
   .bar-anum{position:absolute;top:2px;left:0;right:0;text-align:center;font-size:11px;font-weight:800;color:#34495e;}
   .bar-gnum{position:absolute;top:4px;left:0;right:0;text-align:center;font-size:11px;font-weight:800;color:var(--gap);}
+  /* 生保 見込み */
+  .bar-fc{width:100%;position:relative;background:repeating-linear-gradient(45deg,#d6c8f0,#d6c8f0 5px,#efe9fa 5px,#efe9fa 10px);transition:height .5s;}
+  .bar-fcnum{position:absolute;top:2px;left:0;right:0;text-align:center;font-size:10px;font-weight:800;color:#6b46c1;}
+  .life-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:6px 0 8px;}
+  .lcell{text-align:center;background:#faf8fe;border-radius:7px;padding:7px 2px;}
+  .lcl{font-size:10px;color:var(--sub);}
+  .lcv{font-size:17px;font-weight:800;}
+  .lcg{font-size:10px;font-weight:700;margin-top:1px;}
+  .lcg.short{color:var(--bad);}.lcg.ok{color:var(--good);}
+  .rate-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 6px;border-bottom:1px solid #f0f4f8;}
+  .rate-row .rr-l{color:var(--sub);}
+  .rate-row .rr-v{font-weight:800;font-size:16px;}
+  .life-legend{display:flex;gap:14px;font-size:10px;color:var(--sub);margin-top:8px;}
+  .life-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;}
+  .life-legend i.hatch-fc{background:repeating-linear-gradient(45deg,#d6c8f0,#d6c8f0 3px,#efe9fa 3px,#efe9fa 6px);}
   .rate-mini{flex:1;text-align:center;}
   .rate-mini .r{font-size:22px;font-weight:800;}
   .rate-mini .rl{font-size:10px;color:var(--sub);}
@@ -434,7 +449,7 @@ function defaults(){
   SONPO.forEach(s=>{d[s.key+'_mt']=s.dtm;d[s.key+'_ma']=0;d[s.key+'_move']=[];d[s.key+'_memo']='';});
   d['sonpoMonTotalTarget']=6500;d['sonpoRenew_mt']=0;
   KPIS.forEach(s=>{d[s.key+'_wt']=s.wk;d[s.key+'_move']=[];d[s.key+'_memo']='';});
-  d['life_ma']=0;d['life_mt']=420;d['life_move']=[];d['life_memo']='';
+  d['life_ma']=0;d['life_mt']=420;d['life_fc']=0;d['life_move']=[];d['life_memo']='';
   d['daily']={};
   d['yt_sonpoTotal_mon']=78000;d['yt_life_mon']=5000;
   KPIS.forEach(s=>{d['yt_'+s.key+'_cnt']=s.wk*52;});
@@ -517,14 +532,33 @@ function lifeCardHTML(){
     <div class="io-grid">
       <div class="io-unit">手数料（千円）</div>
       <div class="io-row"><label>目標</label><input type="number" min="0" id="life_mt" oninput="recalc()"></div>
-      <div class="io-row"><label>現状累計</label><input type="number" min="0" id="life_ma" oninput="recalc()"></div>
+      <div class="io-row"><label>実績累計</label><input type="number" min="0" id="life_ma" oninput="recalc()"></div>
+      <div class="io-row" style="grid-column:1/-1;"><label>着地見込</label><input type="number" min="0" id="life_fc" oninput="recalc()" style="width:120px;"><span style="font-size:10px;color:var(--sub);">最終的に入りそうな合計（実績含む）</span></div>
     </div>
     <div class="quick-add">
       <span class="qa-lbl">＋ 今日上げた分</span>
       <input type="number" min="0" id="life_add" placeholder="例: 50" onkeydown="if(event.key==='Enter')quickAdd('life')">
       <button class="qa-btn" onclick="quickAdd('life')">加算</button>
     </div>
-    <div class="dual">${metricBlock('life','m','手数料')}</div>
+
+    <div class="life-grid">
+      <div class="lcell"><div class="lcl">目標</div><div class="lcv" style="color:var(--navy)" id="life_t_disp">0</div></div>
+      <div class="lcell"><div class="lcl">実績</div><div class="lcv" style="color:#6b46c1" id="life_a_disp">0</div><div class="lcg" id="life_a_gap"></div></div>
+      <div class="lcell"><div class="lcl">見込</div><div class="lcv" style="color:#9f7aea" id="life_f_disp">0</div><div class="lcg" id="life_f_gap"></div></div>
+    </div>
+
+    <div class="barbox">
+      <div class="bar-outer">
+        <div class="bar-fill" id="life_fill_a" style="height:0%;background:#6b46c1"><span class="bar-anum" id="life_anum" style="color:#fff"></span></div>
+        <div class="bar-fc" id="life_fill_f" style="height:0%"><span class="bar-fcnum" id="life_fcnum"></span></div>
+        <div class="bar-band" id="life_band" style="height:100%"><span class="bar-gnum" id="life_gnum"></span></div>
+      </div>
+      <div style="flex:1;">
+        <div class="rate-row"><span class="rr-l">実績達成</span><span class="rr-v" id="life_rate_a">0%</span></div>
+        <div class="rate-row"><span class="rr-l">見込達成</span><span class="rr-v" id="life_rate_f">0%</span></div>
+      </div>
+    </div>
+    <div class="life-legend"><span><i style="background:#6b46c1"></i>実績</span><span><i class="hatch-fc"></i>見込上乗せ</span><span><i style="background:#eef3f8;border:1px solid #ccc"></i>不足</span></div>
     ${nextMoveHTML('life')}
   </div>`;
 }
@@ -574,6 +608,36 @@ function paint(id,a,t){
     else{r.textContent=rate.toFixed(0)+'%';r.className='r '+rateCls(rate);r.style.fontSize='';}
   }
 }
+
+/* 生保：実績と見込みを分けて表示 */
+function paintLife(){
+  const lt=num(val('life_mt')), la=num(val('life_ma')), lf=num(val('life_fc'));
+  model.life_mt=lt; model.life_ma=la; model.life_fc=lf;
+  const fc=Math.max(lf,la); // 見込みは実績以上として扱う
+  set('life_t_disp',lt.toLocaleString());
+  set('life_a_disp',la.toLocaleString());
+  set('life_f_disp',fc.toLocaleString());
+  // ギャップ表示
+  const ag=lt-la, fg=lt-fc;
+  const ae=document.getElementById('life_a_gap');
+  if(ae){ if(ag>0){ae.textContent='目標まで -'+ag.toLocaleString();ae.className='lcg short';} else {ae.textContent='達成 +'+Math.abs(ag).toLocaleString();ae.className='lcg ok';} }
+  const fe=document.getElementById('life_f_gap');
+  if(fe){ if(fg>0){fe.textContent='目標まで -'+fg.toLocaleString();fe.className='lcg short';} else {fe.textContent='到達見込 +'+Math.abs(fg).toLocaleString();fe.className='lcg ok';} }
+  // 積み上げバー：実績(濃)＋見込上乗せ(斜線)＋不足(空白)
+  const faPct = lt>0?Math.min(la/lt*100,100):(la>0?100:0);
+  const addPct = lt>0?Math.min(Math.max(fc-la,0)/lt*100, Math.max(100-faPct,0)):0;
+  const bandPct = Math.max(100-faPct-addPct,0);
+  set2('life_fill_a','height',faPct+'%');
+  set2('life_fill_f','height',addPct+'%');
+  set2('life_band','height',bandPct+'%');
+  set('life_anum', la>0?la.toLocaleString():'');
+  set('life_fcnum', (fc>la)?('+'+(fc-la).toLocaleString()):'');
+  set('life_gnum', fg>0?'-'+fg.toLocaleString():'');
+  // 達成率
+  const ra=document.getElementById('life_rate_a'), rf=document.getElementById('life_rate_f');
+  if(ra){const v=lt>0?la/lt*100:0;ra.textContent=(lt>0?v.toFixed(0)+'%':'—');ra.className='rr-v '+rateCls(v);}
+  if(rf){const v=lt>0?fc/lt*100:0;rf.textContent=(lt>0?v.toFixed(0)+'%':'—');rf.className='rr-v '+rateCls(v);}
+}
 function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function set2(id,p,v){const e=document.getElementById(id);if(e)e.style[p]=v;}
 function val(id){const e=document.getElementById(id);return e?e.value:0;}
@@ -597,8 +661,7 @@ function recalc(){
   const nm=model.sonpoNew_ma+sn.money,rm=model.sonpoRenew_ma+sr.money;
   set('tot_new_m',nm);set('tot_renew_m',rm);
   paint('tot_m',nm+rm,model.sonpoNew_mt+model.sonpoRenew_mt);
-  const la=num(val('life_ma')),lt=num(val('life_mt'));
-  model.life_ma=la;model.life_mt=lt;paint('life_m',la,lt);
+  paintLife();
   recalcKPI();
   persist();
 }
@@ -877,7 +940,7 @@ function loadData(){
   dailyData=model.daily||{};
   SONPO.forEach(m=>{document.getElementById(m.key+'_mt').value=model[m.key+'_mt'];document.getElementById(m.key+'_ma').value=model[m.key+'_ma'];});
   document.getElementById('sonpoTotalMT').value=model.sonpoMonTotalTarget!==undefined?model.sonpoMonTotalTarget:6500;
-  document.getElementById('life_ma').value=model.life_ma;document.getElementById('life_mt').value=model.life_mt;
+  document.getElementById('life_ma').value=model.life_ma;document.getElementById('life_mt').value=model.life_mt;document.getElementById('life_fc').value=model.life_fc||0;
   KPIS.forEach(m=>{document.getElementById(m.key+'_wt').value=model[m.key+'_wt'];});
   [...SONPO.map(s=>s.key),'life',...KPIS.map(k=>k.key)].forEach(k=>{
     const t=document.getElementById(k+'_memo');if(t)t.value=model[k+'_memo']||'';
